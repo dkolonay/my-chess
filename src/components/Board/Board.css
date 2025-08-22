@@ -1,0 +1,12 @@
+.board{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    transition: transform 0.5s ease-in-out;
+}
+
+.flipped{
+    transform: rotate(180deg);
+    transition: transform 0.5s ease-in-out;
+}
+

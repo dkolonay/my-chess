@@ -1,0 +1,23 @@
+:root {
+  background-color: #242424;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.rotate-button{
+    position: fixed;
+    bottom: 20px;
+    left: 440px;
+    z-index: 5;
+}
+

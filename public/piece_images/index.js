@@ -1,0 +1,1 @@
+export {default as black_bishop} from './black_bishop.png'
