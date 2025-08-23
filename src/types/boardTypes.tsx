@@ -9,6 +9,20 @@ export interface PieceType {
     destination: string;
 }
 
+export interface MoveType {
+    x: number,
+    y: number,
+    type: string,
+    double: boolean,
+    enpassant: boolean,
+    promotion: boolean,
+    castle: boolean
+}
+
+export interface MovesType {
+    [key:string]: MoveType
+}
+
 export function createNewPiece(x: number = 0, y: number = 0, id: number = 0, name: string = "", color: string = "", moved: boolean = false, doubleTurn: number = 0, destination: string = "") : PieceType {
     return {
         x:x,
