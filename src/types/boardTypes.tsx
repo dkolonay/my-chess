@@ -13,7 +13,9 @@ export interface BoardSquare {
     x: number;
     y: number;
     selected: boolean;
+    highlighted: boolean;
     top: boolean;
+    moveIndicator: string;
     theme: string;
     piece: PieceType;
 }

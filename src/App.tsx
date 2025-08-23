@@ -6,6 +6,7 @@ import { BoardContext } from './contexts/BoardContext'
 
 
 function App() {
+  
   const context = useContext(BoardContext);
 
   if (context == null){
