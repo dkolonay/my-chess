@@ -9,6 +9,19 @@ export interface PieceType {
     destination: string;
 }
 
+export function createNewPiece(x: number = 0, y: number = 0, id: number = 0, name: string = "", color: string = "", moved: boolean = false, doubleTurn: number = 0, destination: string = "") : PieceType {
+    return {
+        x:x,
+        y:y,
+        id:id,
+        name:name,
+        color:color,
+        moved:moved,
+        doubleTurn:doubleTurn,
+        destination:destination
+    }
+}
+
 export interface BoardSquare {
     x: number;
     y: number;

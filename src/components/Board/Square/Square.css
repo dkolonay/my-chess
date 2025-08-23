@@ -34,10 +34,6 @@
     box-sizing: border-box;
 }
 
-.hide_move {
-    display:none;
-}
-
 .select-highlight{
     background-color: rgb(198, 177, 62);
     opacity: 0.6;

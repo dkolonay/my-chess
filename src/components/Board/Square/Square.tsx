@@ -20,15 +20,18 @@ function Square(props: { x: number, y: number }) {
   const handleMouseDown = () => {
     context.updateSelectedSquare(props.x, props.y)
   }
-  if (squareData.moveIndicator == "regular_move"){
-    console.log('test')
-  }
 
   return (
     <div id={`s${props.x},${props.y}`} className={`square ${squareData.theme} ${squareData.top ? 'top-square' : ''}`} onMouseDown={handleMouseDown}>
-      <div className={squareData.selected || squareData.highlighted ? 'select-highlight' : ''}></div>
-      <div className={squareData.moveIndicator}></div>
-      {squareData.piece.name != 'none' &&
+      {(squareData.selected || squareData.highlighted) &&
+      <div className={'select-highlight'}></div>
+      }
+      
+      {squareData.moveIndicator &&
+          <div className={squareData.moveIndicator}></div>
+      }
+
+      {squareData.piece.name != "" &&
         <Piece flipped={context.flipped} piece={squareData.piece} x={props.x} y={props.y} id={`p${props.x},${props.y}`}></Piece>
       }
 

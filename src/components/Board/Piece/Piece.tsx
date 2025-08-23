@@ -5,7 +5,10 @@ import './Piece.css'
 
 
 function Piece(props: { piece: PieceType, flipped: boolean, id: string, x: number, y: number }) {
-    const imgSrc: string = `/piece_images/${props.piece.color}_${props.piece.name}.png`
+    let imgSrc = ""
+    if (props.piece.name != ""){
+        imgSrc= `/piece_images/${props.piece.color}_${props.piece.name}.png`
+    }
 
     const context = useContext(BoardContext);
     const [dragging, setDragging] = useState(false);
@@ -73,6 +76,7 @@ function Piece(props: { piece: PieceType, flipped: boolean, id: string, x: numbe
     }, [pieceData.destination])
 
     function toggleDrag(e: React.MouseEvent<HTMLInputElement>) {
+        return
         if (!dragging) {
             setDragStart([e.clientX, e.clientY])
             setDragging(true)
@@ -82,6 +86,7 @@ function Piece(props: { piece: PieceType, flipped: boolean, id: string, x: numbe
     }
 
     function handleDrag(e: React.MouseEvent<HTMLInputElement>) {
+        return
         if (dragging) {
             let deltaX = e.clientX - dragStart[0]
             let deltaY = e.clientY - dragStart[1]
@@ -95,7 +100,10 @@ function Piece(props: { piece: PieceType, flipped: boolean, id: string, x: numbe
 
     return (
         <div style={{ left: offset.x, top: offset.y }} id={props.id} className={`piece-container`} onMouseUp={toggleDrag} onMouseDown={toggleDrag} onMouseMove={handleDrag}>
-            <img className={`piece ${props.flipped ? 'flipped' : ''}`} src={imgSrc} alt={`${props.piece.color}_${props.piece.name}`} />
+            {imgSrc != "" &&
+                <img className={`piece ${props.flipped ? 'flipped' : ''}`} src={imgSrc} alt={`${props.piece.color}_${props.piece.name}`} />
+            }
+            
         </div>
 
     )
