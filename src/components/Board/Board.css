@@ -1,8 +1,14 @@
 .board{
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    transition: transform 0.5s ease-in-out;
+    display: grid;
+    grid-template-areas: 
+    "s00 s10 s20 s30 s40 s50 s60 s70" 
+    "s01 s11 s21 s31 s41 s51 s61 s71" 
+    "s02 s12 s22 s32 s42 s52 s62 s72" 
+    "s03 s13 s23 s33 s43 s53 s63 s73" 
+    "s04 s14 s24 s34 s44 s54 s64 s74" 
+    "s05 s15 s25 s35 s45 s55 s65 s75" 
+    "s06 s16 s26 s36 s46 s56 s66 s76" 
+    "s07 s17 s27 s37 s47 s57 s67 s77" ;
 }
 
 .flipped{

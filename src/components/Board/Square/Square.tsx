@@ -22,7 +22,7 @@ function Square(props: { x: number, y: number }) {
   }
 
   return (
-    <div id={`s${props.x},${props.y}`} className={`square ${squareData.theme} ${squareData.top ? 'top-square' : ''}`} onMouseDown={handleMouseDown}>
+    <div style={{gridArea: `s${props.x}${props.y}`}} id={`s${props.x},${props.y}`} className={`square ${squareData.theme} ${squareData.top ? 'top-square' : ''}`} onMouseDown={handleMouseDown}>
       {(squareData.selected || squareData.highlighted) &&
       <div className={'select-highlight'}></div>
       }

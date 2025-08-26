@@ -1,7 +1,8 @@
 import { useContext } from 'react'
 import './Board.css'
-import Row from './Row/Row.tsx'
+// import Row from './Row/Row.tsx'
 import { BoardContext } from '../../contexts/BoardContext.tsx'
+import Square from './Square/Square.tsx'
 
 function Board() {
 
@@ -15,8 +16,11 @@ function Board() {
     return (
         <div className={`board ${flipped ? 'flipped' : ''}`}>
 
-            {board.map((row, index) =>
-                <Row key={`row_${index}`} row={row} rowNum={index} />
+            {board.map((row, rowIDX) =>
+                row.map((square, squareIDX)=>
+                    <Square key={`s${rowIDX},${squareIDX}`} x={square.x} y={square.y}/>
+                )
+                
             )}
         </div>
 
