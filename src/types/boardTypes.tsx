@@ -13,10 +13,12 @@ export interface MoveType {
     x: number,
     y: number,
     type: string,
+    piece: PieceType,
     double: boolean,
     enpassant: boolean,
     promotion: boolean,
-    castle: boolean
+    castle: boolean,
+    confirmed: boolean
 }
 
 export interface MovesType {

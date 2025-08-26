@@ -1,4 +1,4 @@
-import { createContext, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { createNewPiece, type BoardRow, type BoardType, type MoveType, type MovesType, type PieceType } from "../types/boardTypes";
 
@@ -73,8 +73,6 @@ for (let i = 0; i < 8; i++) {
     DEFAULT_BOARD.push(row);
 }
 
-
-
 export const BoardContext = createContext<BoardContextType | null>(null);
 
 export default function BoardContextProvider({
@@ -83,6 +81,10 @@ export default function BoardContextProvider({
     const [selectedSquare, setSelectedSquare] = useState<{ x: number | null, y: number | null }>({ x: null, y: null });
     const [board, setBoard] = useState<BoardType>(DEFAULT_BOARD);
     const [moves, setMoves] = useState<MovesType>({})
+    const [lastMove, setLastMove] = useState<MoveType>({ x: 0, y: 0, type: "", piece: createNewPiece(), double: false, enpassant: false, promotion: false, castle: false, confirmed: false })
+    const [check, setCheck] = useState(false)
+    const [whiteKing, setWhiteKing] = useState({ x: 4, y: 7, check: false, checks: [] })
+    const [blackKing, setBlackKing] = useState({ x: 4, y: 0, check: false, checks: [] })
     const [turn, setTurn] = useState(1);
     const [flipped, setFlipped] = useState(false);
 
@@ -90,238 +92,268 @@ export default function BoardContextProvider({
         setFlipped(!flipped)
     }
 
+    const potentialBishopMove = (x1: number, y1: number, x2: number, y2: number) => {
+        if (Math.abs(x2 - x1) == Math.abs(y2 - y1)) {
+            let signX = 1;
+            let signY = 1;
+            if (x2 > x1 && y2 < y1) {
+                signY = -1;
+            }
+            if (x2 < x1 && y2 > y1) {
+                signX = -1;
+            }
+            if (x2 < x1 && y2 < y1) {
+                signX = -1;
+                signY = -1;
+            }
+
+            for (let i = 1; i < Math.abs(x2 - x1); i++) {
+                if (board[x1 + (i * signX)][y1 + (i * signY)].piece.name != "") {
+                    return 0; //piece in the way
+                }
+            }
+            if (board[x2][y2].piece.name == "") {
+                return 1;
+            } else {
+                return 2;
+            }
+
+        } else {
+            return 0;
+        }
+    }
+
+    const potentialRookMove = (x1: number, y1: number, x2: number, y2: number) => {
+        let sign = 1;
+        if (x2 == x1) {
+            if (y2 < y1) {
+                sign = -1
+            }
+            for (let i = 1; i < Math.abs(y2 - y1); i++) {
+                if (board[x1][y1 + (i * sign)].piece.name != "") {
+                    return 0;
+                }
+            }
+            if (board[x2][y2].piece.name == "") {
+                return 1;
+            } else {
+                return 2;
+            }
+
+        }
+        if (y2 == y1) {
+            if (x2 < x1) {
+                sign = -1
+            }
+            for (let i = 1; i < Math.abs(x2 - x1); i++) {
+                if (board[x1 + (i * sign)][y1].piece.name != "") {
+                    return 0;
+                }
+            }
+            if (board[x2][y2].piece.name == "") {
+                return 1;
+            } else {
+                return 2
+            }
+        }
+        return 0;
+    }
+
+    const potentialQueenMove = (x1: number, y1: number, x2: number, y2: number) => {
+        let moveType = 0;
+        moveType = potentialBishopMove(x1, y1, x2, y2);
+        if (!moveType) {
+            moveType = potentialRookMove(x1, y1, x2, y2);
+        }
+        return moveType;
+    }
+
+    const potentialKnightMove = (x1: number, y1: number, x2: number, y2: number) => {
+        if (Math.abs(x2 - x1) == 2 && Math.abs(y2 - y1) == 1 || Math.abs(y2 - y1) == 2 && Math.abs(x2 - x1) == 1) {
+            if (board[x2][y2].piece.name == "") {
+                return 1;
+            } else {
+                return 2;
+            }
+        } else {
+            return 0
+        }
+    }
+
+    const potentialKingMove = (x1: number, y1: number, x2: number, y2: number) => {
+        if (Math.abs(x2 - x1) < 2 && Math.abs(y2 - y1) < 2) {
+            if (board[x2][y2].piece.name == "") {
+                return 1
+            } else {
+                return 2;
+            }
+        } else {
+            if (Math.abs(x2 - x1) == 2 && Math.abs(y2 - y1) == 0) {
+                if (!board[x1][y1].piece.moved) {
+                    if (x2 == 6 && !board[7][y1].piece.moved && board[5][y1].piece.name == "") {
+                        return 7;
+                    }
+                    if (x2 == 2 && !board[0][y1].piece.moved && board[3][y1].piece.name == "" && board[1][y1].piece.name == "") {
+                        return 7;
+                    }
+                }
+            }
+        }
+        return 0
+    }
+
+    const potentialPawnMove = (x1: number, y1: number, x2: number, y2: number) => {
+        let relativeNewY = y2
+        let relativeOldY = y1
+        let promotion = 0;
+        if (board[x1][y1].piece.color == "black") {
+            relativeNewY = y1;
+            relativeOldY = y2;
+            promotion = 7;
+        }
+        if (relativeOldY - relativeNewY == 1) {
+
+            if (x2 == x1 && board[x2][y2].piece.name == "") {
+                if (y2 == promotion) {
+                    return 5;
+                } else {
+                    return 1;
+                }
+            }
+            if (Math.abs(x2 - x1) == 1) {
+
+                if (board[x2][y2].piece.name != "") {
+
+                    if (y2 == promotion) {
+                        return 6;
+                    } else {
+                        return 2;
+                    }
+                }
+                if (x1 != 7) {
+                    if (board[x1 + 1][y1].piece.name == 'pawn' && x2 - x1 == 1) {
+
+                        if (board[x1 + 1][y1].piece.doubleTurn == turn - 1 && board[x1 + 1][y1].piece.color != board[x1][y1].piece.color) {
+
+                            return 4;
+                        }
+                    }
+                }
+                if (x1 != 0) {
+                    if (board[x1 - 1][y1].piece.name == 'pawn' && x2 - x1 == -1) {
+
+                        if (board[x1 - 1][y1].piece.doubleTurn == turn - 1 && board[x1 - 1][y1].piece.color != board[x1][y1].piece.color) {
+                            return 4;
+                        }
+                    }
+                }
+            }
+
+        } else if ((relativeOldY - relativeNewY == 2 && Math.abs(x2 - x1) == 0) && board[x1][y1].piece.moved == false && board[x2][y2].piece.name == "") {
+            if (board[x1][y1].piece.color == 'white' && board[x1][y1 - 1].piece.name != "") {
+                return 0
+            } else if (board[x1][y1].piece.color == 'black' && board[x1][y1 + 1].piece.name != "") {
+                return 0
+            }
+            return 3;
+        }
+        return 0;
+    }
+
     const calculatePotentialMoves = (startX: number, startY: number) => {
         const piece = board[startX][startY].piece;
         let potentialMoves: MovesType = {};
-
-        const potentialBishopMove = (x: number, y: number, deltaX: number, deltaY: number, targetPiece: PieceType) => {
-            if (deltaX == deltaY) {
-                let signX = 1;
-                let signY = 1;
-                if (x > startX && y < startY) {
-                    signY = -1;
-                }
-                if (x < startX && y > startY) {
-                    signX = -1;
-                }
-                if (x < startX && y < startY) {
-                    signX = -1;
-                    signY = -1;
-                }
-
-                for (let i = 1; i < deltaX; i++) {
-                    if (board[startX + (i * signX)][startY + (i * signY)].piece.name != "") {
-                        return 0; //piece in the way
-                    }
-                }
-                if (targetPiece.name == "") {
-                    return 1;
-                } else {
-                    return 2;
-                }
-
-            } else {
-                return 0;
-            }
+        let playerColor = "white"
+        if (turn %2 == 0){
+            playerColor = "black"
         }
-
-        const potentialRookMove = (x: number, y: number, deltaX: number, deltaY: number, targetPiece: PieceType) => {
-            let sign = 1;
-            if (x == startX) {
-                if (y < startY) {
-                    sign = -1
-                }
-                for (let i = 1; i < deltaY; i++) {
-                    if (board[startX][startY + (i * sign)].piece.name != "") {
-                        return 0;
-                    }
-                }
-                if (targetPiece.name == "") {
-                    return 1;
-                } else {
-                    return 2;
-                }
-
-            }
-            if (y == startY) {
-                if (x < startX) {
-                    sign = -1
-                }
-                for (let i = 1; i < deltaX; i++) {
-                    if (board[startX + (i * sign)][startY].piece.name != "") {
-                        return 0;
-                    }
-                }
-                if (targetPiece.name == "") {
-                    return 1;
-                } else {
-                    return 2
-                }
-            }
-            return 0;
-        }
-
-        const potentialKnightMove = (/*x: number, y: number, */deltaX: number, deltaY: number, targetPiece: PieceType) => {
-            if (deltaX == 2 && deltaY == 1 || deltaY == 2 && deltaX == 1) {
-                if (targetPiece.name == "") {
-                    return 1;
-                } else {
-                    return 2;
-                }
-            } else {
-                return 0
-            }
-        }
-
-        const potentialKingMove = (x: number, /*y: number, */deltaX: number, deltaY: number, targetPiece: PieceType) => {
-            if (deltaX < 2 && deltaY < 2) {
-                if (targetPiece.name == "") {
-                    return 1
-                } else {
-                    return 2;
-                }
-            } else {
-                if (deltaX == 2 && deltaY == 0) {
-                    if (!piece.moved) {
-                        if (x == 6 && !board[7][startY].piece.moved && board[5][startY].piece.name == "") {
-                            return 7;
-                        }
-                        if (x == 2 && !board[0][startY].piece.moved && board[3][startY].piece.name == "" && board[1][startY].piece.name == "") {
-                            return 7;
-                        }
-                    }
-                }
-            }
-            return 0
-        }
-
-        const potentialPawnMove = (x: number, y: number, deltaX: number, targetPiece: PieceType) => {
-            let relativeNewY = y
-            let relativeOldY = startY
-            let promotion = 0;
-
-            if (piece.color == "black") {
-                relativeNewY = startY;
-                relativeOldY = y;
-                promotion = 7;
-            }
-
-            
-            if (relativeOldY - relativeNewY == 1) {
-                if (x == startX && targetPiece.name == "") {
-                    if (y == promotion) {
-                        console.log("promotion")
-                        return 5;
-                    } else {
-                        return 1;
-                    }
-                }
-                if (deltaX == 1) {
-                    if (targetPiece.name != "") {
-                        if (y == promotion) {
-                            console.log("promotion")
-                            return 6;
-                        } else {
-                            return 2;
-                        }
-                    }
-                    if (startX != 7) {
-                        if (board[startX + 1][startY].piece.name == 'pawn' && x - startX == 1) {
-                
-                            if (board[startX + 1][startY].piece.doubleTurn == turn - 1 && board[startX + 1][startY].piece.color != piece.color) {
-                                console.log('right passant')
-                                return 4;
-                            }
-                        }
-                    }
-                    if (startX != 0) {
-                        if (board[startX - 1][startY].piece.name == 'pawn' && x - startX == -1) {
-                   
-                            if (board[startX - 1][startY].piece.doubleTurn == turn - 1 && board[startX - 1][startY].piece.color != piece.color) {
-                                console.log('left passant')
-                                return 4;
-                            }
-                        }
-                    }
-                }
-
-            } else if ((relativeOldY - relativeNewY == 2 && deltaX == 0) && piece.moved == false && targetPiece.name == "") {
-                if (piece.color == 'white' && board[startX][startY - 1].piece.name != "") {
-                    return 0
-                } else if (piece.color == 'black' && board[startX][startY + 1].piece.name != "") {
-                    return 0
-                }
-                return 3;
-            }
-            return 0;
+        if (piece.color != playerColor){
+            return potentialMoves;
         }
 
         for (let x = 0; x < 8; x++) {
             for (let y = 0; y < 8; y++) {
-
-                const deltaX = Math.abs(x - startX);
-                const deltaY = Math.abs(y - startY);
                 let moveType = 0
-                let targetSquare = board[x][y];
-                let targetPiece = targetSquare.piece;
 
-                if (targetPiece.color == piece.color) {
+                if (board[x][y].piece.color == piece.color) {
                     continue;
                 }
 
                 switch (piece.name) {
                     case "pawn":
-                        moveType = potentialPawnMove(x, y, deltaX, targetPiece)
+                        moveType = potentialPawnMove(startX, startY, x, y)
                         break;
                     case "bishop":
-                        moveType = potentialBishopMove(x, y, deltaX, deltaY, targetPiece)
+                        moveType = potentialBishopMove(startX, startY, x, y)
                         break;
                     case "rook":
-                        moveType = potentialRookMove(x, y, deltaX, deltaY, targetPiece)
+                        moveType = potentialRookMove(startX, startY, x, y)
                         break;
                     case "queen":
-                        moveType = potentialBishopMove(x, y, deltaX, deltaY, targetPiece);
-                        if (!moveType) {
-                            moveType = potentialRookMove(x, y, deltaX, deltaY, targetPiece);
-                        }
+                        moveType = potentialQueenMove(startX, startY, x, y);
+
                         break;
                     case "knight":
-                        moveType = potentialKnightMove(/*x, y, */deltaX, deltaY, targetPiece);
+                        moveType = potentialKnightMove(startX, startY, x, y);
                         break;
                     case "king":
-                        moveType = potentialKingMove(x,/* y, */deltaX, deltaY, targetPiece)
+                        moveType = potentialKingMove(startX, startY, x, y)
                         break;
 
                     default:
                         break;
 
+                }
+                if (moveType == 0) {
+                    continue;
                 }
                 const key = `${x},${y}`;
+                let newMove = { x: x, y: y, type: "regular_move", piece: piece, double: false, enpassant: false, promotion: false, castle: false, confirmed: false }
                 switch (moveType) {
                     case 1:
-                        potentialMoves[key] = { x: x, y: y, type: "regular_move", double: false, enpassant: false, promotion: false, castle: false }
                         break;
                     case 2:
-                        potentialMoves[key] = { x: x, y: y, type: "capture_move", double: false, enpassant: false, promotion: false, castle: false }
+                        newMove.type = "capture_move"
                         break;
                     case 3:
-                        potentialMoves[key] = { x: x, y: y, type: "regular_move", double: true, enpassant: false, promotion: false, castle: false }
+                        newMove.double = true
                         break;
                     case 4:
-                        potentialMoves[key] = { x: x, y: y, type: "capture_move", double: false, enpassant: true, promotion: false, castle: false }
+                        newMove.type = "capture_move"
+                        newMove.enpassant = true
                         break;
                     case 5:
-                        potentialMoves[key] = { x: x, y: y, type: "regular_move", double: false, enpassant: false, promotion: true, castle: false }
+                        newMove.promotion = true;
                         break;
                     case 6:
-                        potentialMoves[key] = { x: x, y: y, type: "capture_move", double: false, enpassant: false, promotion: true, castle: false }
+                        newMove.type = "capture_move"
+                        newMove.promotion = true;
                         break;
                     case 7:
-                        potentialMoves[key] = { x: x, y: y, type: "regular_move", double: false, enpassant: false, promotion: false, castle: true }
+                        newMove.castle = true;
                         break;
                     default:
                         break;
                 }
+                let causesFriendlyCheck = evaluateCheck(newMove)
+                let castleCheck = false
+                if (newMove.castle) {
+
+                    if (newMove.x == 6) {
+                        castleCheck = evaluateCheck({ ...newMove, x: 5 })
+                    } else {
+                        castleCheck = evaluateCheck({ ...newMove, x: 3 })
+                    }
+                    if (check){
+                        castleCheck = true;
+                    }
+                }
+
+                if (!causesFriendlyCheck && !castleCheck) {
+
+                    potentialMoves[key] = newMove
+                }
+
             }
         }
         return potentialMoves;
@@ -381,10 +413,9 @@ export default function BoardContextProvider({
             const key = `${newSquareX},${newSquareY}`;
             const newMove = moves[key]
             if (newMove !== undefined) {
-                movePiece(newMove, selectedSquare.x, selectedSquare.y);
-
                 //clicking a valid move when a piece is selected will move the piece
                 setMoves({})
+                movePiece(newMove, selectedSquare.x, selectedSquare.y);
                 setBoard((prevBoard) =>
                     prevBoard.map((row, i) =>
                         row.map((square, j) => {
@@ -608,15 +639,241 @@ export default function BoardContextProvider({
     //     return [valid, enpassant, doubleMove, promotion, castle];
     // }
 
+    const evaluateCheck = (move: MoveType) => {
+        let kingX = whiteKing.x;
+        let kingY = whiteKing.y;
+        let kingColor = "white"
+        let check = false;
+        const boardState = structuredClone(board)
+        const attackers: PieceType[] = []
+
+        if ((move.piece.color == "black" && !move.confirmed) || (move.piece.color == "white" && move.confirmed)) {
+            kingX = blackKing.x;
+            kingY = blackKing.y;
+            kingColor = "black"
+        }
+        if (move.piece.name == "king") {
+            kingX = move.x;
+            kingY = move.y;
+        }
+
+        if (!move.confirmed) {
+            boardState[move.x][move.y].piece = move.piece;
+            boardState[move.piece.x][move.piece.y].piece = createNewPiece()
+        }
+
+        // check for rooks or queens to the right
+        for (let x = kingX; x < 7; x++) {
+            if (kingX == 7) break;
+            const potentialAttacker = boardState[x + 1][kingY].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") continue;
+
+            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+        }
+        //check for rooks or queens to the left
+        for (let x = kingX; x > 0; x--) {
+            if (kingX == 0) break;
+            const potentialAttacker = boardState[x - 1][kingY].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") continue;
+
+            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+        }
+        //check for rooks or queens above
+        for (let y = kingY; y > 0; y--) {
+            if (kingY == 0) break;
+            const potentialAttacker = boardState[kingX][y - 1].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") continue;
+
+            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+        }
+        //check for rooks or queens below
+        for (let y = kingY; y < 7; y++) {
+            if (y == 7) break;
+            const potentialAttacker = boardState[kingX][y + 1].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") continue;
+
+            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+        }
+
+        //check down/right diagonal
+        let i = 1;
+        while (kingX + i < 8 && kingY + i < 8) {
+            const potentialAttacker = boardState[kingX + i][kingY + i].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") {
+                i++
+                continue;
+            }
+            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+            i++
+        }
+        i = 1;
+        //check up/right diagonal
+        while (kingX + i < 8 && kingY - i >= 0) {
+            const potentialAttacker = boardState[kingX + i][kingY - i].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") {
+                i++
+                continue;
+            }
+            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+            i++
+        }
+        i = 1;
+        //check up/left diagonal
+        while (kingX - i >= 0 && kingY - i >= 0) {
+            const potentialAttacker = boardState[kingX - i][kingY - i].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") {
+                i++
+                continue;
+            }
+            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+            i++
+        }
+        i = 1;
+        //check up/left diagonal
+        while (kingX - i >= 0 && kingY + i < 8) {
+            const potentialAttacker = boardState[kingX - i][kingY + i].piece;
+            if (potentialAttacker.color == kingColor) break;
+            if (potentialAttacker.name == "") {
+                i++
+                continue;
+            }
+            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
+                check = true;
+                attackers.push(potentialAttacker)
+            } else {
+                break;
+            }
+            i++
+        }
+        //check for knights
+        for (let i = -2; i <= 2; i += 4) {
+            for (let j = -1; j <= 1; j += 2) {
+                let x = kingX + i;
+                let y = kingY + j;
+                let a = kingX - j;
+                let b = kingY - i;
+                let potentialAttacker = createNewPiece()
+                if (!((x > 7 || x < 0) || (y > 7 || y < 0))) {
+                    potentialAttacker = boardState[x][y].piece;
+                    if (potentialAttacker.color != kingColor && potentialAttacker.name == "knight") {
+                        check = true;
+                        attackers.push(potentialAttacker);
+                        break;
+                    }
+                }
+                if (!((a > 7 || a < 0) || (b > 7 || b < 0))) {
+                    potentialAttacker = boardState[a][b].piece;
+                    if (potentialAttacker.color != kingColor && potentialAttacker.name == "knight") {
+                        check = true;
+                        attackers.push(potentialAttacker);
+                        break;
+                    }
+                }
+            }
+        }
+
+        //check for pawns
+        const x1 = kingX + 1;
+        const x2 = kingX - 1
+        let y = kingY + 1;
+        if (kingColor == "white") {
+            y = kingY - 1
+        }
+        if (x1 <= 7 && (y >= 0 && y <= 7)) {
+            const potentialAttacker = boardState[x1][y].piece;
+            if (potentialAttacker.name == "pawn" && potentialAttacker.color != kingColor) {
+                check = true;
+                attackers.push(potentialAttacker)
+            }
+        }
+        if (x2 >= 0 && (y >= 0 && y <= 7)) {
+            const potentialAttacker = boardState[x2][y].piece;
+            if (potentialAttacker.name == "pawn" && potentialAttacker.color != kingColor) {
+                check = true;
+                attackers.push(potentialAttacker)
+            }
+        }
+
+        if (check) {
+            if (move.confirmed) {
+                setCheck(true)
+            }
+            return true;
+
+        }
+        if (move.confirmed){
+            setCheck(false)
+        }
+
+        return false;
+    }
+
     const movePiece = (newMove: MoveType, oldX: number, oldY: number) => {
         const newX = newMove.x;
         const newY = newMove.y;
+        newMove.confirmed = true;
+        setLastMove(newMove);
         setBoard((prevBoard) => {
             const newBoard = structuredClone(prevBoard);
+            const movedPiece = board[oldX][oldY].piece
 
             newBoard[newX][newY].piece = { ...prevBoard[oldX][oldY].piece, x: newX, y: newY, moved: true, destination: '' };
             newBoard[oldX][oldY].piece = createNewPiece();
-          
+
+            if (movedPiece.name == "king") {
+                if (movedPiece.color == "white") {
+                    setWhiteKing((oldKing) => {
+                        return { ...oldKing, x: newX, y: newY, check: false, checks: [] }
+                    })
+                } else {
+                    setBlackKing((oldKing) => {
+
+                        return { ...oldKing, x: newX, y: newY, check: false, checks: [] }
+                    })
+                }
+            }
             if (newMove.castle) {
                 if (newX == 6) {
                     newBoard[5][oldY].piece = { ...prevBoard[7][oldY].piece, x: 5, y: newY, moved: true, destination: '' };
@@ -637,15 +894,43 @@ export default function BoardContextProvider({
                 }
             }
             if (newMove.promotion) {
-              
+
                 newBoard[newX][newY].piece.name = 'queen';
                 newBoard[newX][newY].piece.id = 5;
             }
             return newBoard;
         })
 
+        // evaluateCheck(newMove);
+
         setTurn((oldTurn) => oldTurn + 1);
     }
+
+    useEffect(() => {
+        const inCheck = evaluateCheck(lastMove)
+        if (inCheck) {
+            let color = "white"
+            if (lastMove.piece.color == "white") {
+                color = "black"
+            }
+            let checkmate = true
+            board.forEach((row) => {
+                if (!checkmate) return;
+                row.forEach((square) => {
+                    if (!checkmate) return;
+                    if (square.piece.color == color) {
+                        let potentialMoves = calculatePotentialMoves(square.x, square.y)
+                        if (Object.keys(potentialMoves).length > 0) {
+                            checkmate = false
+                        }
+                    }
+                })
+            })
+            if (checkmate) {
+                console.log("Checkmate!!!")
+            }
+        }
+    }, [turn])
 
     return (
         <BoardContext.Provider

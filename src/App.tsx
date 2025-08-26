@@ -6,18 +6,17 @@ import { BoardContext } from './contexts/BoardContext'
 
 
 function App() {
-  
+
   const context = useContext(BoardContext);
 
-  if (context == null){
+  if (context == null) {
     throw new Error("No context provided")
   }
 
   return (
     <>
-   
-    <button onClick = {context.handleFlip} className = {'rotate-button'}>Rotate Board</button>
-        <Board/>
+      <button onClick={context.handleFlip} className={'rotate-button'}>Rotate Board</button>
+      <Board />
     </>
   )
 }
