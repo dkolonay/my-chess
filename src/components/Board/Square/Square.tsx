@@ -6,7 +6,7 @@ import Piece from '../Piece/Piece'
 
 
 
-function Square(props: { x: number, y: number }) {
+function Square(props: { idx: string, x: number, y: number }) {
 
   const context = useContext(BoardContext)
 
@@ -16,13 +16,14 @@ function Square(props: { x: number, y: number }) {
   }
 
   const squareData = context.board[props.x][props.y]
+  // console.log(squareData)
 
   const handleMouseDown = () => {
     context.updateSelectedSquare(props.x, props.y)
   }
 
   return (
-    <div style={{gridArea: `s${props.x}${props.y}`}} id={`s${props.x},${props.y}`} className={`square ${squareData.theme} ${squareData.top ? 'top-square' : ''}`} onMouseDown={handleMouseDown}>
+    <div style={{gridArea: props.idx}} id={`s${props.x},${props.y}`} className={`square ${squareData.theme} ${squareData.top ? 'top-square' : ''}`} onMouseDown={handleMouseDown}>
       {(squareData.selected || squareData.highlighted) &&
       <div className={'select-highlight'}></div>
       }

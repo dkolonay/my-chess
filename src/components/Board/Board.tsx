@@ -16,9 +16,9 @@ function Board() {
     return (
         <div className={`board ${flipped ? 'flipped' : ''}`}>
 
-            {board.map((row, rowIDX) =>
-                row.map((square, squareIDX)=>
-                    <Square key={`s${rowIDX},${squareIDX}`} x={square.x} y={square.y}/>
+            {board.map((row) =>
+                row.map((square)=>
+                    <Square key={square.idx} idx={square.idx} x={square.x} y={square.y}/>
                 )
                 
             )}
