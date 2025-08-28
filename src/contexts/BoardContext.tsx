@@ -46,7 +46,7 @@ export default function BoardContextProvider({
     const [selectedSquare, setSelectedSquare] = useState<{ x: number | null, y: number | null }>({ x: null, y: null });
     const [board, setBoard] = useState<BoardType>(DEFAULT_BOARD);
     const [moves, setMoves] = useState<MovesType>({})
-    const [lastMove, setLastMove] = useState<MoveType>({ x: 0, y: 0, type: "", piece: createNewPiece(), passantSquare: "", enpassant: false, promotion: false, castle: false, confirmed: false })
+    const [lastMove, setLastMove] = useState<MoveType>({ x: 0, y: 0, type: "", piece: createNewPiece(), passantSquare: "-", enpassant: false, promotion: false, castle: false, confirmed: false })
     const [check, setCheck] = useState(false)
     const [whiteKing, setWhiteKing] = useState({ x: 4, y: 7, check: false, checks: [] })
     const [blackKing, setBlackKing] = useState({ x: 4, y: 0, check: false, checks: [] })
@@ -54,7 +54,7 @@ export default function BoardContextProvider({
 
     const [activeColor, setActiveColor] = useState("w");
     const [castleRights, setCastleRights] = useState("KQkq");
-    const [passantSquare, setPassantSquare] = useState("")
+    const [passantSquare, setPassantSquare] = useState("-")
     // const [halfTurn, setHalfTurn] = useState(0);
     const [turn, setTurn] = useState(1);
 
@@ -335,7 +335,6 @@ export default function BoardContextProvider({
         if (board[startX][startY].piece.color == "b") {
             potentialCastleRights = potentialCastleRights.toLowerCase()
         }
-        console.log(castleRights, potentialCastleRights)
         if (castleRights.includes(potentialCastleRights[0])) {
             if (board[startX + 1][startY].piece.name == "" && board[startX + 2][startY].piece.name == "") {
                 const newMove = createNewMove(startX + 2, startY, "regular_move", structuredClone(board[startX][startY].piece))
@@ -448,7 +447,6 @@ export default function BoardContextProvider({
     }
 
     const updateSelectedSquare = (newSquareX: number, newSquareY: number) => {
-        console.log(castleRights)
         let selectedColor = ""
 
         if (selectedSquare.x !== null && selectedSquare.y !== null) {
@@ -752,6 +750,7 @@ export default function BoardContextProvider({
         const newX = newMove.x;
         const newY = newMove.y;
         newMove.confirmed = true;
+        setPassantSquare(newMove.passantSquare)
         setLastMove(newMove);
         setBoard((prevBoard) => {
             const newBoard = structuredClone(prevBoard);
@@ -812,9 +811,7 @@ export default function BoardContextProvider({
                     newBoard[0][oldY].piece = createNewPiece();
                 }
             }
-            if (newMove.passantSquare != "-") {
-                setPassantSquare(newMove.passantSquare)
-            }
+            
             if (newMove.enpassant) {
                 if (newBoard[newX][newY].piece.color == "w") {
                     newBoard[newX][newY - 1].piece = createNewPiece();
@@ -840,30 +837,31 @@ export default function BoardContextProvider({
         parseFenToBoard(DEFAULT_FEN_STRING)
     }, [])
 
-    // useEffect(() => {
-    //     const inCheck = evaluateCheck(lastMove)
-    //     if (inCheck) {
-    //         let color = "w"
-    //         if (lastMove.piece.color == "w") {
-    //             color = "b"
-    //         }
-    //         let checkmate = true
-    //         board.forEach((row) => {
-    //             if (!checkmate) return;
-    //             row.forEach((square) => {
-    //                 if (!checkmate) return;
-    //                 if (square.piece.color == color) {
-    //                     let potentialMoves = calculatePotentialMoves(square.x, square.y)
-    //                     if (Object.keys(potentialMoves).length > 0) {
-    //                         checkmate = false
-    //                     }
-    //                 }
-    //             })
-    //         })
-    //         if (checkmate) {
-    //         }
-    //     }
-    // }, [turn])
+    useEffect(() => {
+        console.log(passantSquare)
+        // const inCheck = evaluateCheck(lastMove)
+        // if (inCheck) {
+        //     let color = "w"
+        //     if (lastMove.piece.color == "w") {
+        //         color = "b"
+        //     }
+        //     let checkmate = true
+        //     board.forEach((row) => {
+        //         if (!checkmate) return;
+        //         row.forEach((square) => {
+        //             if (!checkmate) return;
+        //             if (square.piece.color == color) {
+        //                 let potentialMoves = calculatePotentialMoves(square.x, square.y)
+        //                 if (Object.keys(potentialMoves).length > 0) {
+        //                     checkmate = false
+        //                 }
+        //             }
+        //         })
+        //     })
+        //     if (checkmate) {
+        //     }
+        // }
+    }, [turn])
 
 
 
@@ -882,3 +880,11 @@ export default function BoardContextProvider({
         </BoardContext.Provider>
     )
 }
+
+//En passant square is wrong notationally but functional
+//Functions for setting new pieces in potential moves are inconsistent
+//Check needs to be rewritten and implemented with new logic
+//FEN state needs to be updated on move
+//FEN state history (for 3 move repetition and potential to go back to older moves)
+//reimplement animations
+//Only active color should be able to select pieces and move

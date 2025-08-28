@@ -14,7 +14,7 @@ export interface MoveType {
     y: number,
     type: string,
     piece: PieceType,
-    double: boolean,
+    passantSquare: string,
     enpassant: boolean,
     promotion: boolean,
     castle: boolean,
@@ -39,13 +39,13 @@ export function createNewPiece(x: number = 0, y: number = 0, value: number = 0, 
     }
 }
 
-export function createNewMove(x:number, y: number, type:string, piece:PieceType = createNewPiece(), double: boolean = false, enpassant:boolean = false, promotion:boolean = false, castle:boolean = false, confirmed:boolean = false):MoveType{
+export function createNewMove(x:number, y: number, type:string, piece:PieceType = createNewPiece(), passantSquare: string = "-", enpassant:boolean = false, promotion:boolean = false, castle:boolean = false, confirmed:boolean = false):MoveType{
     return{
         x:x,
         y:y,
         type:type,
         piece:piece,
-        double:double,
+        passantSquare:passantSquare,
         enpassant:enpassant,
         promotion:promotion,
         castle:castle,
