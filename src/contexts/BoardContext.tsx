@@ -762,14 +762,22 @@ export default function BoardContextProvider({
             if (movedPiece.name == "king") {
                 if (movedPiece.color == "w") {
                     setCastleRights((prevRights) => {
-                        return prevRights.replace(/[KQ]/g, "")
+                        let newRights = prevRights.replace(/[KQ]/g, "")
+                        if (newRights == ""){
+                            newRights = "-"
+                        }
+                        return newRights
                     })
                     setWhiteKing((oldKing) => {
                         return { ...oldKing, x: newX, y: newY, check: false, checks: [] }
                     })
                 } else {
                     setCastleRights((prevRights) => {
-                        return prevRights.replace(/[kq]/g, "")
+                        let newRights = prevRights.replace(/[kq]/g, "")
+                        if (newRights == ""){
+                            newRights = "-"
+                        }
+                        return newRights
                     })
                     setBlackKing((oldKing) => {
 
@@ -782,22 +790,38 @@ export default function BoardContextProvider({
 
                     if (movedPiece.color == "w") {
                         setCastleRights((prevRights) => {
-                            return prevRights.replace("K", "")
+                            let newRights = prevRights.replace("K", "")
+                            if(newRights == ""){
+                                newRights = "-"
+                            }
+                            return newRights
                         })
                     } else {
                         setCastleRights((prevRights) => {
-                            return prevRights.replace("k", "")
+                            let newRights = prevRights.replace("k", "")
+                            if(newRights == ""){
+                                newRights = "-"
+                            }
+                            return newRights
                         })
                     }
                 }
                 if (movedPiece.x == 0) {
                     if (movedPiece.color == "w") {
                         setCastleRights((prevRights) => {
-                            return prevRights.replace("Q", "")
+                            let newRights = prevRights.replace("Q", "")
+                            if(newRights == ""){
+                                newRights = "-"
+                            }
+                            return newRights
                         })
                     } else {
                         setCastleRights((prevRights) => {
-                            return prevRights.replace("q", "")
+                            let newRights = prevRights.replace("q", "")
+                            if(newRights == ""){
+                                newRights = "-"
+                            }
+                            return newRights
                         })
                     }
                 }
@@ -838,7 +862,7 @@ export default function BoardContextProvider({
     }, [])
 
     useEffect(() => {
-        console.log(passantSquare)
+        console.log(castleRights)
         // const inCheck = evaluateCheck(lastMove)
         // if (inCheck) {
         //     let color = "w"
