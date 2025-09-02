@@ -1,7 +1,7 @@
 import { useEffect, useContext, useState } from 'react'
 import type { PieceType } from '../../../types/boardTypes'
 import { BoardContext } from '../../../contexts/BoardContext'
-import './Piece.css'
+import styles from './Piece.module.css'
 
 
 function Piece(props: { piece: PieceType, flipped: boolean, id: string, x: number, y: number }) {
@@ -99,9 +99,9 @@ function Piece(props: { piece: PieceType, flipped: boolean, id: string, x: numbe
     }
 
     return (
-        <div style={{ left: offset.x, top: offset.y }} id={props.id} className={`piece-container`} onMouseUp={toggleDrag} onMouseDown={toggleDrag} onMouseMove={handleDrag}>
+        <div style={{ left: offset.x, top: offset.y }} id={props.id} className={styles.pieceContainer} onMouseUp={toggleDrag} onMouseDown={toggleDrag} onMouseMove={handleDrag}>
             {imgSrc != "" &&
-                <img className={`piece ${props.flipped ? 'flipped' : ''}`} src={imgSrc} alt={`${props.piece.color}_${props.piece.name}`} />
+                <img className={`${styles.piece} ${props.flipped ? styles.flipped : ''}`} src={imgSrc} alt={`${props.piece.color}_${props.piece.name}`} />
             }
             
         </div>

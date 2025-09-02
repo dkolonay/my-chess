@@ -2,10 +2,11 @@ export interface PieceType {
     x: number,
     y: number,
     name: string;
+    fenChar: string;
     value: number;
     color: string;
     moved: boolean;
-    doubleTurn?: number;
+    doubleTurn: number;
     destination: string;
 }
 
@@ -26,11 +27,12 @@ export interface MovesType {
     [key:string]: MoveType
 }
 
-export function createNewPiece(x: number = 0, y: number = 0, value: number = 0, name: string = "", color: string = "", moved: boolean = false, doubleTurn: number = 0, destination: string = "") : PieceType {
+export function createNewPiece(x: number = 0, y: number = 0, value: number = 0, name: string = "", fenChar: string = "", color: string = "", moved: boolean = false, doubleTurn: number = 0, destination: string = "") : PieceType {
     return {
         x:x,
         y:y,
         name:name,
+        fenChar:fenChar,
         value:value,
         color:color,
         moved:moved,

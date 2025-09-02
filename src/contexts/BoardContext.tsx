@@ -1,6 +1,6 @@
 import { createContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { createNewMove, createNewPiece, type BoardRow, type BoardType, type MoveType, type MovesType, type PieceType } from "../types/boardTypes";
+import { createNewMove, createNewPiece, type BoardRow, type BoardType, type MoveType, type MovesType} from "../types/boardTypes";
 
 type BoardContextProviderProps = {
     children: ReactNode;
@@ -17,6 +17,7 @@ export type BoardContextType = {
 
 const DEFAULT_BOARD: BoardType = []
 const DEFAULT_FEN_STRING = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+// const DEFAULT_FEN_STRING = "1nb2bnr/r1qpp1pp/1pp2k2/pB6/P3R3/1P2P1Q1/N1PP2PP/2B1K2R w - K 10 21"
 const LETTER_KEY = "abcdefgh"
 
 for (let i = 0; i < 8; i++) {
@@ -38,111 +39,183 @@ for (let i = 0; i < 8; i++) {
     DEFAULT_BOARD.push(row);
 }
 
+const parseFenToBoard = (FenString: string) => {
+
+    const [boardString, newActiveColor, newCastleRights, newPassantSquare, newHalfTurn, newTurn] = FenString.split(" ")
+
+    const rankStrings = boardString.split("/")
+    const newBoard: BoardType = structuredClone(DEFAULT_BOARD);
+    for (let rank = 0; rank < 8; rank++) {
+        let rowLength = rankStrings[7 - rank].length;
+        let file = 0
+        for (let j = 0; j < rowLength; j++) {
+
+            let char = rankStrings[7 - rank][j]
+
+            if (/\d/.test(char)) {
+                file += parseInt(char)
+                continue;
+            } else {
+                const newPiece = createNewPiece()
+                newPiece.x = file
+                newPiece.y = rank
+                if (char.toLowerCase() === char) {
+                    newPiece.color = "b"
+                } else {
+                    newPiece.color = "w"
+                }
+
+                switch (char.toLowerCase()) {
+                    case "p":
+                        newPiece.name = "pawn";
+                        newPiece.fenChar = newPiece.color == "w" ? "P" : "p"
+                        newPiece.value = 1
+                        break;
+                    case "n":
+                        newPiece.name = "knight";
+                        newPiece.fenChar = newPiece.color == "w" ? "N" : "n"
+                        newPiece.value = 3
+                        break;
+                    case "b":
+                        newPiece.name = "bishop";
+                        newPiece.fenChar = newPiece.color == "w" ? "B" : "b"
+                        newPiece.value = 3
+                        break;
+                    case "r":
+                        newPiece.name = "rook";
+                        newPiece.fenChar = newPiece.color == "w" ? "R" : "r"
+                        newPiece.value = 5
+                        break;
+                    case "q":
+                        newPiece.name = "queen";
+                        newPiece.fenChar = newPiece.color == "w" ? "Q" : "q"
+                        newPiece.value = 9
+                        break;
+                    case "k":
+                        newPiece.name = "king";
+                        newPiece.fenChar = newPiece.color == "w" ? "K" : "k"
+                        newPiece.value = 100
+                        break;
+                    default:
+                        break;
+                }
+                newBoard[file][rank].piece = newPiece
+                file++
+            }
+
+        }
+    }
+
+    return [newBoard, newActiveColor, newCastleRights, newPassantSquare, newHalfTurn, newTurn]
+}
+
+const parseFenFromBoardState = (newBoard: BoardType, newActiveColor: string, newCastleRights: string, newPassantSquare: string, newHalfTurn: number, newTurn: number) => {
+    let fenString = ""
+    const empties = [0, 0, 0, 0, 0, 0, 0, 0]
+    const rowStrings = ["", "", "", "", "", "", "", ""]
+    for (let i = 0; i < 8; i++) {
+        for (let j = 7; j >= 0; j--) {
+            if (newBoard[i][j].piece.fenChar != "") {
+                if (empties[j] > 0) {
+                    rowStrings[j] += empties[j].toString()
+                    empties[j] = 0
+                }
+                rowStrings[j] += newBoard[i][j].piece.fenChar
+            } else {
+                empties[j] += 1
+            }
+        }
+    }
+    for (let i = 0; i < 8; i++) {
+        if (empties[i] > 0) {
+            rowStrings[i] += empties[i].toString()
+        }
+    }
+
+    for (let i = 7; i >= 0; i--) {
+        fenString += rowStrings[i];
+        if (i > 0) {
+            fenString += "/"
+        }
+    }
+    fenString += ` ${newActiveColor}`
+    fenString += ` ${newCastleRights}`
+    fenString += ` ${newPassantSquare}`
+    fenString += ` ${newHalfTurn}`
+    fenString += ` ${newTurn}`
+
+    return fenString;
+}
+
 export const BoardContext = createContext<BoardContextType | null>(null);
 
 export default function BoardContextProvider({
     children,
 }: BoardContextProviderProps) {
+    // const [isFirstRender, setFirstRender] = useState(true)
+
+    const [initialBoard, initialActiveColor, initialCastleRights, initialPassantSquare, initialHalfTurn, initialTurn] = parseFenToBoard(DEFAULT_FEN_STRING)
+
+    if (typeof initialBoard === "string" || typeof initialHalfTurn != "string" || typeof initialTurn != "string" || typeof initialCastleRights != "string") {
+        return
+    }
+
     const [selectedSquare, setSelectedSquare] = useState<{ x: number | null, y: number | null }>({ x: null, y: null });
-    const [board, setBoard] = useState<BoardType>(DEFAULT_BOARD);
     const [moves, setMoves] = useState<MovesType>({})
-    const [lastMove, setLastMove] = useState<MoveType>({ x: 0, y: 0, type: "", piece: createNewPiece(), passantSquare: "-", enpassant: false, promotion: false, castle: false, confirmed: false })
+    const [lastMove, setLastMove] = useState<MoveType>({
+        x: 0, y: 0, type: "", piece: {
+            x: 0,
+            y: 0,
+            name: "",
+            fenChar: "",
+            value: 0,
+            color: "",
+            moved: false,
+            doubleTurn: 0,
+            destination: ""
+        }, passantSquare: "-", enpassant: false, promotion: false, castle: false, confirmed: true
+    })
     const [check, setCheck] = useState(false)
-    const [whiteKing, setWhiteKing] = useState({ x: 4, y: 7, check: false, checks: [] })
-    const [blackKing, setBlackKing] = useState({ x: 4, y: 0, check: false, checks: [] })
     const [flipped, setFlipped] = useState(false);
 
-    const [activeColor, setActiveColor] = useState("w");
-    const [castleRights, setCastleRights] = useState("KQkq");
-    const [passantSquare, setPassantSquare] = useState("-")
-    // const [halfTurn, setHalfTurn] = useState(0);
-    const [turn, setTurn] = useState(1);
+    const [board, setBoard] = useState<BoardType>(initialBoard);
+    const [activeColor, setActiveColor] = useState(initialActiveColor);
+    const [castleRights, setCastleRights] = useState(initialCastleRights);
+    const [passantSquare, setPassantSquare] = useState(initialPassantSquare)
+    const [halfTurn, setHalfTurn] = useState(parseInt(initialHalfTurn));
+    const [turn, setTurn] = useState(parseInt(initialTurn));
 
-    const parseFenToBoard = (FenString: string) => {
-        const [boardString, newActiveColor, newCastleRights, newPassantSquare, newHalfTurn, newTurn] = FenString.split(" ")
-        const rankStrings = boardString.split("/")
-        const newBoard = structuredClone(DEFAULT_BOARD);
-        for (let rank = 0; rank < 8; rank++) {
-            let rowLength = rankStrings[7 - rank].length;
-            let file = 0
-            for (let j = 0; j < rowLength; j++) {
+    const [fenString, setFenString] = useState(DEFAULT_FEN_STRING)
+    const [moveHistory, setMoveHistory] = useState([DEFAULT_FEN_STRING])
 
-                let char = rankStrings[7 - rank][j]
 
-                if (/\d/.test(char)) {
-                    file += parseInt(char)
-                    continue;
-                } else {
-                    const newPiece = createNewPiece()
-                    newPiece.x = file
-                    newPiece.y = rank
-                    if (char.toLowerCase() === char) {
-                        newPiece.color = "b"
-                    } else {
-                        newPiece.color = "w"
-                    }
-
-                    switch (char.toLowerCase()) {
-                        case "p":
-                            newPiece.name = "pawn";
-                            newPiece.value = 1
-                            break;
-                        case "n":
-                            newPiece.name = "knight";
-                            newPiece.value = 3
-                            break;
-                        case "b":
-                            newPiece.name = "bishop";
-                            newPiece.value = 3
-                            break;
-                        case "r":
-                            newPiece.name = "rook";
-                            newPiece.value = 5
-                            break;
-                        case "q":
-                            newPiece.name = "queen";
-                            newPiece.value = 9
-                            break;
-                        case "k":
-                            newPiece.name = "king";
-                            newPiece.value = 100
-                            break;
-                        default:
-                            break;
-                    }
-                    newBoard[file][rank].piece = newPiece
-                    file++
-                }
-
-            }
-        }
-        setBoard(newBoard);
-        setActiveColor(newActiveColor);
-        setCastleRights(newCastleRights);
-        setPassantSquare(newPassantSquare);
-        // setHalfTurn(parseInt(newHalfTurn));
-        setTurn(parseInt(newTurn));
-    }
 
     const handleFlip = () => {
         setFlipped(!flipped)
     }
 
-    const findPotentialRookMoves = (startX: number, startY: number): MovesType => {
+
+
+    const findPotentialRookMoves = (startX: number, startY: number, boardState: BoardType, checkTest: boolean): MovesType => {
         const potentialMoves: MovesType = {};
         let x = startX;
         let y = startY;
 
         const createRookMove = (newX: number, newY: number) => {
-            let piece = structuredClone(board[startX][startY].piece)
+            let piece = structuredClone(boardState[startX][startY].piece)
             let potentialMove = createNewMove(newX, newY, "", piece);
 
-            if (board[newX][newY].piece.color == board[startX][startY].piece.color) {
+            if (boardState[newX][newY].piece.color == boardState[startX][startY].piece.color) {
                 return potentialMove
             } else {
+                let causesCheck = false;
+                if (!checkTest) {
+                    causesCheck = evaluateCheck(potentialMove);
+                }
+
+                if (causesCheck) return potentialMove;
                 potentialMove.type = "regular_move"
-                // if (!evaluateCheck(potentialMove)) potentialMoves[key] = potentialMove
-                if (board[newX][newY].piece.name != "") {
+                if (boardState[newX][newY].piece.name != "") {
                     potentialMove.type = "capture_move"
                 }
                 return potentialMove
@@ -192,15 +265,20 @@ export default function BoardContextProvider({
         return potentialMoves
     }
 
-    const findPotentialKnightMoves = (startX: number, startY: number): MovesType => {
+    const findPotentialKnightMoves = (startX: number, startY: number, boardState: BoardType, checkTest: boolean): MovesType => {
         const potentialMoves: MovesType = {}
         const createKnightMove = (x: number, y: number) => {
-            let piece = structuredClone(board[startX][startY].piece)
+            let piece = structuredClone(boardState[startX][startY].piece)
 
             let knightMove = createNewMove(x, y, "", piece)
             if (!((x > 7 || x < 0) || (y > 7 || y < 0))) {
-                if (board[x][y].piece.color != board[startX][startY].piece.color) {
-                    if (board[x][y].piece.name == "") {
+                if (boardState[x][y].piece.color != boardState[startX][startY].piece.color) {
+                    let causesCheck = false
+                    if (!checkTest) {
+                        causesCheck = evaluateCheck(knightMove)
+                    }
+                    if (causesCheck) return knightMove;
+                    if (boardState[x][y].piece.name == "") {
                         knightMove.type = "regular_move"
                     } else {
                         knightMove.type = "capture_move"
@@ -232,21 +310,26 @@ export default function BoardContextProvider({
         return potentialMoves;
     }
 
-    const findPotentialBishopMoves = (startX: number, startY: number): MovesType => {
+    const findPotentialBishopMoves = (startX: number, startY: number, boardState: BoardType, checkTest: boolean): MovesType => {
         const potentialMoves: MovesType = {}
         let x = startX
         let y = startY
 
         const createBishopMove = (newX: number, newY: number) => {
-            let piece = structuredClone(board[startX][startY].piece)
+            let piece = structuredClone(boardState[startX][startY].piece)
 
             let potentialMove = createNewMove(newX, newY, "", piece);
 
-            if (board[newX][newY].piece.color == board[startX][startY].piece.color) {
+            if (boardState[newX][newY].piece.color == boardState[startX][startY].piece.color) {
                 return potentialMove
             } else {
+                let causesCheck = false
+                if (!checkTest) {
+                    causesCheck = evaluateCheck(potentialMove)
+                }
+                if (causesCheck) return potentialMove;
                 potentialMove.type = "regular_move"
-                if (board[newX][newY].piece.name != "") {
+                if (boardState[newX][newY].piece.name != "") {
                     potentialMove.type = "capture_move"
                 }
                 return potentialMove
@@ -300,14 +383,20 @@ export default function BoardContextProvider({
         return potentialMoves
     }
 
-    const findPotentialKingMoves = (startX: number, startY: number): MovesType => {
+    const findPotentialKingMoves = (startX: number, startY: number, boardState: BoardType, checkTest: boolean): MovesType => {
         const potentialMoves: MovesType = {}
         const createKingMove = (x: number, y: number) => {
-            let piece = structuredClone(board[startX][startY].piece)
+            let piece = structuredClone(boardState[startX][startY].piece)
 
             let potentialMove = createNewMove(x, y, "", piece)
-            if (board[x][y].piece.color != board[startX][startY].piece.color) {
-                if (board[x][y].piece.name == "") {
+            let causesCheck = false;
+            if (!checkTest) {
+                causesCheck = evaluateCheck(potentialMove)
+            }
+            if (causesCheck) return potentialMove;
+
+            if (boardState[x][y].piece.color != boardState[startX][startY].piece.color) {
+                if (boardState[x][y].piece.name == "") {
                     potentialMove.type = "regular_move"
                 } else {
                     potentialMove.type = "capture_move"
@@ -332,39 +421,57 @@ export default function BoardContextProvider({
             }
         }
         let potentialCastleRights = "KQ"
-        if (board[startX][startY].piece.color == "b") {
+        if (boardState[startX][startY].piece.color == "b") {
             potentialCastleRights = potentialCastleRights.toLowerCase()
         }
-        if (castleRights.includes(potentialCastleRights[0])) {
-            if (board[startX + 1][startY].piece.name == "" && board[startX + 2][startY].piece.name == "") {
-                const newMove = createNewMove(startX + 2, startY, "regular_move", structuredClone(board[startX][startY].piece))
-                newMove.castle = true
-                potentialMoves[`${startX + 2},${startY}`] = newMove
+        if (!checkTest && !check) {
+            if (castleRights.includes(potentialCastleRights[0])) {
+                if (boardState[startX + 1][startY].piece.name == "" && boardState[startX + 2][startY].piece.name == "") {
+                    const newMove = createNewMove(startX + 2, startY, "", structuredClone(boardState[startX][startY].piece))
+                    const intermediateMove = createNewMove(startX + 1, startY, "", structuredClone(boardState[startX][startY].piece))
+                    if (!(evaluateCheck(newMove) || evaluateCheck(intermediateMove))) {
+                        newMove.type = "regular_move"
+                        newMove.castle = true
+                        potentialMoves[`${startX + 2},${startY}`] = newMove
+                    }
+                }
             }
-        }
-        if (castleRights.includes(potentialCastleRights[1])) {
-            if (board[startX - 1][startY].piece.name == "" && board[startX - 2][startY].piece.name == "" && board[startX - 3][startY].piece.name == "") {
-                const newMove = createNewMove(startX - 2, startY, "regular_move", structuredClone(board[startX][startY].piece))
-                newMove.castle = true
-                potentialMoves[`${startX - 2},${startY}`] = newMove
-            }
-        }
+            if (castleRights.includes(potentialCastleRights[1])) {
+                if (boardState[startX - 1][startY].piece.name == "" && boardState[startX - 2][startY].piece.name == "" && boardState[startX - 3][startY].piece.name == "") {
+                    const newMove = createNewMove(startX - 2, startY, "", structuredClone(boardState[startX][startY].piece))
+                    const intermediateMove = createNewMove(startX - 1, startY, "", structuredClone(boardState[startX][startY].piece))
 
+                    if (!(evaluateCheck(newMove) || evaluateCheck(intermediateMove))) {
+                        newMove.type = "regular_move"
+                        newMove.castle = true
+                        potentialMoves[`${startX - 2},${startY}`] = newMove
+                    }
+
+                }
+            }
+        }
 
         return potentialMoves
     }
 
-    const findPotentialPawnMoves = (startX: number, startY: number): MovesType => {
+    const findPotentialPawnMoves = (startX: number, startY: number, boardState: BoardType): MovesType => {
         const potentialMoves: MovesType = {}
-        let piece = structuredClone(board[startX][startY].piece)
+        let piece = structuredClone(boardState[startX][startY].piece)
 
-        const moveColor = board[startX][startY].piece.color;
+        const moveColor = boardState[startX][startY].piece.color;
         let x = startX
         let y = startY + 1
 
+        let offset = 1
+        let requiredStart = 1
+        if (moveColor == "b") {
+            offset = -1
+            requiredStart = 6
+        }
+
         const handlePawnCapture = (x: number, y: number) => {
             const newMove = createNewMove(x, y, "", piece)
-            if (board[x][y].piece.color != moveColor && board[x][y].piece.name != "") {
+            if (boardState[x][y].piece.color != moveColor && boardState[x][y].piece.name != "") {
                 newMove.type = "capture_move"
                 if (y == 0 || y == 7) {
                     newMove.promotion = true;
@@ -372,7 +479,7 @@ export default function BoardContextProvider({
                 potentialMoves[`${x},${y}`] = newMove
             }
 
-            if (`${LETTER_KEY[x]}${y}` === passantSquare) {
+            if (`${LETTER_KEY[x]}${y + 1}` === passantSquare) {
                 newMove.type = "capture_move";
                 newMove.enpassant = true;
                 potentialMoves[`${x},${y}`] = newMove
@@ -382,7 +489,8 @@ export default function BoardContextProvider({
         if (moveColor == "b") {
             y = startY - 1;
         }
-        if (board[x][y].piece.name == "") {
+
+        if (boardState[x][y].piece.name == "") {
             const newMove = createNewMove(x, y, "regular_move", piece)
             if (y == 0 || y == 7) {
                 newMove.promotion = true;
@@ -397,53 +505,60 @@ export default function BoardContextProvider({
         if (x >= 0) {
             handlePawnCapture(x, y)
         }
-        let offset = 2
-        let requiredStart = 1
-        if (moveColor == "b") {
-            offset = -2
-            requiredStart = 6
-        }
-        if (startY == requiredStart && board[startX][startY + (offset / 2)].piece.name == "" && board[startX][startY + offset].piece.name == "") {
+
+        offset *= 2;
+        if (startY == requiredStart && boardState[startX][startY + (offset / 2)].piece.name == "" && boardState[startX][startY + offset].piece.name == "") {
             const newMove = createNewMove(startX, startY + offset, "regular_move", piece)
-            newMove.passantSquare = `${LETTER_KEY[startX]}${[startY + (offset / 2)]}`;
+            newMove.passantSquare = `${LETTER_KEY[startX]}${[startY + (offset == 2 ? offset : 0)]}`;
             potentialMoves[`${startX},${startY + offset}`] = newMove;
         }
+
+        for (const [key, move] of Object.entries(potentialMoves)) {
+            if (evaluateCheck(move)) {
+                delete potentialMoves[key]
+            }
+        }
+
+
 
 
         return potentialMoves;
     }
 
     const calculatePotentialMoves = (startX: number, startY: number) => {
+
         const piece = board[startX][startY].piece;
         let potentialMoves: MovesType = {};
 
-        // if (piece.color != activeColor) {
-        //     return potentialMoves;
-        // }
+        if (piece.color != activeColor) {
+            return potentialMoves;
+        }
         switch (piece.name) {
             case "pawn":
-                potentialMoves = findPotentialPawnMoves(startX, startY);
-                return potentialMoves;
+                potentialMoves = findPotentialPawnMoves(startX, startY, board);
+                break;
             case "knight":
-                potentialMoves = findPotentialKnightMoves(startX, startY);
-                return potentialMoves;
+                potentialMoves = findPotentialKnightMoves(startX, startY, board, false);
+                break;
             case "bishop":
-                potentialMoves = findPotentialBishopMoves(startX, startY);
-                return potentialMoves;
+                potentialMoves = findPotentialBishopMoves(startX, startY, board, false);
+                break;
             case "rook":
-                potentialMoves = findPotentialRookMoves(startX, startY)
-                return potentialMoves;
+                potentialMoves = findPotentialRookMoves(startX, startY, board, false)
+                break;
             case "queen":
-                potentialMoves = findPotentialRookMoves(startX, startY)
-                potentialMoves = { ...potentialMoves, ...findPotentialBishopMoves(startX, startY) }
-                return potentialMoves;
+                potentialMoves = findPotentialRookMoves(startX, startY, board, false)
+                potentialMoves = { ...potentialMoves, ...findPotentialBishopMoves(startX, startY, board, false) }
+                break;
             case "king":
-                potentialMoves = findPotentialKingMoves(startX, startY);
-                return potentialMoves;
+                potentialMoves = findPotentialKingMoves(startX, startY, board, false);
+                break;
             default:
-                return potentialMoves;
+                break;
 
         }
+
+        return potentialMoves;
     }
 
     const updateSelectedSquare = (newSquareX: number, newSquareY: number) => {
@@ -536,19 +651,25 @@ export default function BoardContextProvider({
     }
 
     const evaluateCheck = (move: MoveType) => {
-        let kingX = whiteKing.x;
-        let kingY = whiteKing.y;
-        let kingColor = "w"
+
+        let kingX = 0
+        let kingY = 0
+        let kingColor = activeColor
         let check = false;
         const boardState = structuredClone(board)
-        const attackers: PieceType[] = []
 
-        if ((move.piece.color == "b" && !move.confirmed) || (move.piece.color == "w" && move.confirmed)) {
-            kingX = blackKing.x;
-            kingY = blackKing.y;
-            kingColor = "b"
+        //This is broken beyond comprehension. wff???
+        for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+                if (boardState[i][j].piece.name === "king" && boardState[i][j].piece.color === kingColor) {
+
+                    kingX = i
+                    kingY = j
+                }
+            }
         }
-        if (move.piece.name == "king") {
+
+        if (move.piece.name == "king" && !move.confirmed) {
             kingX = move.x;
             kingY = move.y;
         }
@@ -558,177 +679,56 @@ export default function BoardContextProvider({
             boardState[move.piece.x][move.piece.y].piece = createNewPiece()
         }
 
-        // check for rooks or queens to the right
-        for (let x = kingX; x < 7; x++) {
-            if (kingX == 7) break;
-            const potentialAttacker = boardState[x + 1][kingY].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") continue;
 
-            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
+        const potentialRookAttacks = findPotentialRookMoves(kingX, kingY, boardState, true)
+        Object.values(potentialRookAttacks).forEach((rookMove) => {
+            if (boardState[rookMove.x][rookMove.y].piece.name == "rook" || boardState[rookMove.x][rookMove.y].piece.name == "queen") {
+                check = true
             }
-        }
-        //check for rooks or queens to the left
-        for (let x = kingX; x > 0; x--) {
-            if (kingX == 0) break;
-            const potentialAttacker = boardState[x - 1][kingY].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") continue;
+        })
+        const potentialBishopAttacks = findPotentialBishopMoves(kingX, kingY, boardState, true)
+        Object.values(potentialBishopAttacks).forEach((bishopMove) => {
+            if (boardState[bishopMove.x][bishopMove.y].piece.name == "bishop" || boardState[bishopMove.x][bishopMove.y].piece.name == "queen") {
 
-            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
+                check = true
             }
-        }
-        //check for rooks or queens above
-        for (let y = kingY; y > 0; y--) {
-            if (kingY == 0) break;
-            const potentialAttacker = boardState[kingX][y - 1].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") continue;
+        })
+        const potentialKnightAttacks = findPotentialKnightMoves(kingX, kingY, boardState, true)
+        Object.values(potentialKnightAttacks).forEach((knightMove) => {
+            if (boardState[knightMove.x][knightMove.y].piece.name == "knight") {
 
-            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
+                check = true
             }
-        }
-        //check for rooks or queens below
-        for (let y = kingY; y < 7; y++) {
-            if (y == 7) break;
-            const potentialAttacker = boardState[kingX][y + 1].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") continue;
+        })
+        const potentialKingAttacks = findPotentialKingMoves(kingX, kingY, boardState, true)
+        Object.values(potentialKingAttacks).forEach((kingMove) => {
+            if (boardState[kingMove.x][kingMove.y].piece.name == "king") {
 
-            if (potentialAttacker.name == "rook" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
+                check = true
             }
+        })
+
+        let offset = 1;
+        let boardEnd = 7;
+
+        if (kingColor == "b") {
+            offset = -1;
+            boardEnd = 0
         }
 
-        //check down/right diagonal
-        let i = 1;
-        while (kingX + i < 8 && kingY + i < 8) {
-            const potentialAttacker = boardState[kingX + i][kingY + i].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") {
-                i++
-                continue;
-            }
-            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
-            }
-            i++
-        }
-        i = 1;
-        //check up/right diagonal
-        while (kingX + i < 8 && kingY - i >= 0) {
-            const potentialAttacker = boardState[kingX + i][kingY - i].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") {
-                i++
-                continue;
-            }
-            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
-            }
-            i++
-        }
-        i = 1;
-        //check up/left diagonal
-        while (kingX - i >= 0 && kingY - i >= 0) {
-            const potentialAttacker = boardState[kingX - i][kingY - i].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") {
-                i++
-                continue;
-            }
-            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
-            }
-            i++
-        }
-        i = 1;
-        //check up/left diagonal
-        while (kingX - i >= 0 && kingY + i < 8) {
-            const potentialAttacker = boardState[kingX - i][kingY + i].piece;
-            if (potentialAttacker.color == kingColor) break;
-            if (potentialAttacker.name == "") {
-                i++
-                continue;
-            }
-            if (potentialAttacker.name == "bishop" || potentialAttacker.name == "queen") {
-                check = true;
-                attackers.push(potentialAttacker)
-            } else {
-                break;
-            }
-            i++
-        }
-        //check for knights
-        for (let i = -2; i <= 2; i += 4) {
-            for (let j = -1; j <= 1; j += 2) {
-                let x = kingX + i;
-                let y = kingY + j;
-                let a = kingX - j;
-                let b = kingY - i;
-                let potentialAttacker = createNewPiece()
-                if (!((x > 7 || x < 0) || (y > 7 || y < 0))) {
-                    potentialAttacker = boardState[x][y].piece;
-                    if (potentialAttacker.color != kingColor && potentialAttacker.name == "knight") {
-                        check = true;
-                        attackers.push(potentialAttacker);
-                        break;
-                    }
-                }
-                if (!((a > 7 || a < 0) || (b > 7 || b < 0))) {
-                    potentialAttacker = boardState[a][b].piece;
-                    if (potentialAttacker.color != kingColor && potentialAttacker.name == "knight") {
-                        check = true;
-                        attackers.push(potentialAttacker);
-                        break;
-                    }
+        if (kingY != boardEnd) {
+            if (kingX < 7) {
+
+                if (boardState[kingX + 1][kingY + offset].piece.name == "pawn" && boardState[kingX + 1][kingY + offset].piece.color != kingColor) {
+
+                    check = true
+
                 }
             }
-        }
-
-        //check for pawns
-        const x1 = kingX + 1;
-        const x2 = kingX - 1
-        let y = kingY + 1;
-        if (kingColor == "w") {
-            y = kingY - 1
-        }
-        if (x1 <= 7 && (y >= 0 && y <= 7)) {
-            const potentialAttacker = boardState[x1][y].piece;
-            if (potentialAttacker.name == "pawn" && potentialAttacker.color != kingColor) {
-                check = true;
-                attackers.push(potentialAttacker)
-            }
-        }
-        if (x2 >= 0 && (y >= 0 && y <= 7)) {
-            const potentialAttacker = boardState[x2][y].piece;
-            if (potentialAttacker.name == "pawn" && potentialAttacker.color != kingColor) {
-                check = true;
-                attackers.push(potentialAttacker)
+            if (kingX > 0) {
+                if (boardState[kingX - 1][kingY + offset].piece.name == "pawn" && boardState[kingX - 1][kingY + offset].piece.color != kingColor) {
+                    check = true
+                }
             }
         }
 
@@ -742,119 +742,134 @@ export default function BoardContextProvider({
         if (move.confirmed) {
             setCheck(false)
         }
-
         return false;
     }
 
     const movePiece = (newMove: MoveType, oldX: number, oldY: number) => {
         const newX = newMove.x;
         const newY = newMove.y;
+        const movedPiece = board[oldX][oldY].piece
+
+        let newBoard: BoardType = structuredClone(board)
+        let newActiveColor = activeColor
+        let newCastleRights = castleRights
+        let newPassantSquare = newMove.passantSquare
+        let newHalfTurn = halfTurn
+        let newTurn = turn
+
         newMove.confirmed = true;
-        setPassantSquare(newMove.passantSquare)
-        setLastMove(newMove);
-        setBoard((prevBoard) => {
-            const newBoard = structuredClone(prevBoard);
-            const movedPiece = board[oldX][oldY].piece
 
-            newBoard[newX][newY].piece = { ...prevBoard[oldX][oldY].piece, x: newX, y: newY, moved: true, destination: '' };
-            newBoard[oldX][oldY].piece = createNewPiece();
+        if (activeColor == "b") {
+            newTurn = turn + 1;
+            newActiveColor = "w"
+        } else {
+            newActiveColor = "b"
+        }
 
-            if (movedPiece.name == "king") {
+
+        if (newMove.piece.name == "pawn" || newMove.type == "capture_move") {
+            newHalfTurn = 0;
+        } else {
+            newHalfTurn = halfTurn + 1
+        }
+
+        if (movedPiece.name == "king") {
+            if (movedPiece.color == "w") {
+                newCastleRights = castleRights.replace(/[KQ]/g, "")
+                if (newCastleRights == "") {
+                    newCastleRights = "-"
+                }
+            } else {
+
+                newCastleRights = castleRights.replace(/[kq]/g, "")
+                if (newCastleRights == "") {
+                    newCastleRights = "-"
+                }
+
+            }
+        }
+        if (movedPiece.name == "rook") {
+            if (movedPiece.x == 7) {
+
                 if (movedPiece.color == "w") {
-                    setCastleRights((prevRights) => {
-                        let newRights = prevRights.replace(/[KQ]/g, "")
-                        if (newRights == ""){
-                            newRights = "-"
-                        }
-                        return newRights
-                    })
-                    setWhiteKing((oldKing) => {
-                        return { ...oldKing, x: newX, y: newY, check: false, checks: [] }
-                    })
-                } else {
-                    setCastleRights((prevRights) => {
-                        let newRights = prevRights.replace(/[kq]/g, "")
-                        if (newRights == ""){
-                            newRights = "-"
-                        }
-                        return newRights
-                    })
-                    setBlackKing((oldKing) => {
 
-                        return { ...oldKing, x: newX, y: newY, check: false, checks: [] }
-                    })
-                }
-            }
-            if (movedPiece.name == "rook") {
-                if (movedPiece.x == 7) {
-
-                    if (movedPiece.color == "w") {
-                        setCastleRights((prevRights) => {
-                            let newRights = prevRights.replace("K", "")
-                            if(newRights == ""){
-                                newRights = "-"
-                            }
-                            return newRights
-                        })
-                    } else {
-                        setCastleRights((prevRights) => {
-                            let newRights = prevRights.replace("k", "")
-                            if(newRights == ""){
-                                newRights = "-"
-                            }
-                            return newRights
-                        })
+                    newCastleRights = castleRights.replace("K", "")
+                    if (newCastleRights == "") {
+                        newCastleRights = "-"
                     }
-                }
-                if (movedPiece.x == 0) {
-                    if (movedPiece.color == "w") {
-                        setCastleRights((prevRights) => {
-                            let newRights = prevRights.replace("Q", "")
-                            if(newRights == ""){
-                                newRights = "-"
-                            }
-                            return newRights
-                        })
-                    } else {
-                        setCastleRights((prevRights) => {
-                            let newRights = prevRights.replace("q", "")
-                            if(newRights == ""){
-                                newRights = "-"
-                            }
-                            return newRights
-                        })
-                    }
-                }
-            }
-            if (newMove.castle) {
-                if (newX == 6) {
-                    newBoard[5][oldY].piece = { ...prevBoard[7][oldY].piece, x: 5, y: newY, moved: true, destination: '' };
-                    newBoard[7][oldY].piece = createNewPiece();
-                } else {
-                    newBoard[3][oldY].piece = { ...prevBoard[0][oldY].piece, x: 3, y: newY, moved: true, destination: '' };
-                    newBoard[0][oldY].piece = createNewPiece();
-                }
-            }
-            
-            if (newMove.enpassant) {
-                if (newBoard[newX][newY].piece.color == "w") {
-                    newBoard[newX][newY - 1].piece = createNewPiece();
-                } else {
-                    newBoard[newX][newY + 1].piece = createNewPiece();
-                }
-                setPassantSquare("-")
-            }
-            if (newMove.promotion) {
 
-                newBoard[newX][newY].piece.name = 'queen';
-                newBoard[newX][newY].piece.value = 9;
+                } else {
+
+                    newCastleRights = castleRights.replace("k", "")
+                    if (newCastleRights == "") {
+                        newCastleRights = "-"
+                    }
+
+                }
             }
-            return newBoard;
+            if (movedPiece.x == 0) {
+                if (movedPiece.color == "w") {
+
+                    newCastleRights = castleRights.replace("Q", "")
+                    if (newCastleRights == "") {
+                        newCastleRights = "-"
+                    }
+
+                } else {
+
+                    newCastleRights = castleRights.replace("q", "")
+                    if (newCastleRights == "") {
+                        newCastleRights = "-"
+                    }
+
+                }
+            }
+        }
+
+        newBoard[newX][newY].piece = { ...newBoard[oldX][oldY].piece, x: newX, y: newY, moved: true, destination: '' };
+        newBoard[oldX][oldY].piece = createNewPiece();
+
+        if (newMove.castle) {
+            if (newX == 6) {
+                newBoard[5][oldY].piece = { ...newBoard[7][oldY].piece, x: 5, y: newY, moved: true, destination: '' };
+                newBoard[7][oldY].piece = createNewPiece();
+            } else {
+                newBoard[3][oldY].piece = { ...newBoard[0][oldY].piece, x: 3, y: newY, moved: true, destination: '' };
+                newBoard[0][oldY].piece = createNewPiece();
+            }
+        }
+
+        if (newMove.enpassant) {
+            if (newBoard[newX][newY].piece.color == "w") {
+                newBoard[newX][newY - 1].piece = createNewPiece();
+            } else {
+                newBoard[newX][newY + 1].piece = createNewPiece();
+            }
+            newPassantSquare = "-"
+
+        }
+        if (newMove.promotion) {
+
+            newBoard[newX][newY].piece.name = 'queen';
+            newBoard[newX][newY].piece.value = 9;
+        }
+
+        const newFenString = parseFenFromBoardState(newBoard, newActiveColor, newCastleRights, newPassantSquare, newHalfTurn, newTurn);
+
+        setBoard(newBoard)
+        setActiveColor(newActiveColor)
+        setCastleRights(newCastleRights)
+        setPassantSquare(newPassantSquare)
+        setHalfTurn(newHalfTurn)
+        setTurn(newTurn)
+
+        setFenString(newFenString);
+
+        setLastMove(newMove);
+        setMoveHistory((prevHistory)=>{
+            return [...prevHistory, newFenString]
         })
 
-        // evaluateCheck(newMove);
-
-        setTurn((oldTurn) => oldTurn + 1);
     }
 
     useEffect(() => {
@@ -862,30 +877,52 @@ export default function BoardContextProvider({
     }, [])
 
     useEffect(() => {
-        console.log(castleRights)
-        // const inCheck = evaluateCheck(lastMove)
-        // if (inCheck) {
-        //     let color = "w"
-        //     if (lastMove.piece.color == "w") {
-        //         color = "b"
-        //     }
-        //     let checkmate = true
-        //     board.forEach((row) => {
-        //         if (!checkmate) return;
-        //         row.forEach((square) => {
-        //             if (!checkmate) return;
-        //             if (square.piece.color == color) {
-        //                 let potentialMoves = calculatePotentialMoves(square.x, square.y)
-        //                 if (Object.keys(potentialMoves).length > 0) {
-        //                     checkmate = false
-        //                 }
-        //             }
-        //         })
-        //     })
-        //     if (checkmate) {
-        //     }
+        if (halfTurn == 100) {
+            console.log("Draw by 50 turn rule :(")
+        }
+
+        const inCheck = evaluateCheck(lastMove)
+        console.log(inCheck)
+        if (inCheck) {
+            let checkmate = true
+            board.forEach((row) => {
+                if (!checkmate) return;
+                row.forEach((square) => {
+                    if (!checkmate) return;
+                    if (square.piece.color == activeColor) {
+
+                        let potentialMoves = calculatePotentialMoves(square.x, square.y)
+
+                        if (Object.keys(potentialMoves).length > 0) {
+                            checkmate = false
+                        }
+                    }
+                })
+            })
+            if (checkmate) {
+                console.log("Checkmate!!!")
+            }
+        }
+
+        const newMoveTester = fenString.split(" ").slice(0, 4).join(" ")
+
+        const repeatedMoves = moveHistory.filter((oldMove) => {
+            let oldMoveTester = oldMove.split(" ").slice(0, 4).join(" ")
+            return oldMoveTester === newMoveTester;
+        })
+
+        if(repeatedMoves.length > 2){
+            console.log("Draw by 3-fold repetition")
+        }
+
+        // if (isFirstRender) {
+        //     setFirstRender(false)
+        //     return
         // }
-    }, [turn])
+
+    }, [activeColor])
+
+
 
 
 
@@ -904,11 +941,10 @@ export default function BoardContextProvider({
         </BoardContext.Provider>
     )
 }
-
+//Castled rook doesn't cause check
 //En passant square is wrong notationally but functional
 //Functions for setting new pieces in potential moves are inconsistent
-//Check needs to be rewritten and implemented with new logic
+
 //FEN state needs to be updated on move
 //FEN state history (for 3 move repetition and potential to go back to older moves)
 //reimplement animations
-//Only active color should be able to select pieces and move

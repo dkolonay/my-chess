@@ -9,7 +9,7 @@
     z-index: 2;
 }
 
-.top-square{
+.topSquare{
     z-index: 50;
 }
 
@@ -34,7 +34,7 @@
     box-sizing: border-box;
 }
 
-.select-highlight{
+.selectHighlight{
     background-color: rgb(198, 177, 62);
     opacity: 0.6;
     box-sizing: border-box;

@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import './Board.css'
+import styles from './Board.module.css'
 // import Row from './Row/Row.tsx'
 import { BoardContext } from '../../contexts/BoardContext.tsx'
 import Square from './Square/Square.tsx'
@@ -14,7 +14,7 @@ function Board() {
     const flipped = context.flipped;
     const board = context.board
     return (
-        <div className={`board ${flipped ? 'flipped' : ''}`}>
+        <div className={`${styles.board} ${flipped ? styles.flipped : ''}`}>
 
             {board.map((row) =>
                 row.map((square)=>

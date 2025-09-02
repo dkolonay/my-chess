@@ -1,4 +1,4 @@
-import './Square.css'
+import styles from './Square.module.css'
 import { useContext } from 'react'
 import { BoardContext } from '../../../contexts/BoardContext'
 
@@ -23,13 +23,13 @@ function Square(props: { idx: string, x: number, y: number }) {
   }
 
   return (
-    <div style={{gridArea: props.idx}} id={`s${props.x},${props.y}`} className={`square ${squareData.theme} ${squareData.top ? 'top-square' : ''}`} onMouseDown={handleMouseDown}>
+    <div style={{gridArea: props.idx}} id={`s${props.x},${props.y}`} className={`${styles.square} ${styles[squareData.theme]} ${squareData.top ? styles.topSquare : ''}`} onMouseDown={handleMouseDown}>
       {(squareData.selected || squareData.highlighted) &&
-      <div className={'select-highlight'}></div>
+      <div className={styles.selectHighlight}></div>
       }
       
       {squareData.moveIndicator &&
-          <div className={squareData.moveIndicator}></div>
+          <div className={styles[squareData.moveIndicator]}></div>
       }
 
       {squareData.piece.name != "" &&
