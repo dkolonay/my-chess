@@ -8,6 +8,7 @@ type BoardContextProviderProps = {
 
 export type BoardContextType = {
     board: BoardType;
+    activeColor: string;
     movePiece: (newMove: MoveType, oldX: number, oldY: number) => void;
     flipped: boolean;
     selectedSquare: { x: number | null, y: number | null };
@@ -156,7 +157,7 @@ export default function BoardContextProvider({
 
     const [initialBoard, initialActiveColor, initialCastleRights, initialPassantSquare, initialHalfTurn, initialTurn] = parseFenToBoard(DEFAULT_FEN_STRING)
 
-    if (typeof initialBoard === "string" || typeof initialHalfTurn != "string" || typeof initialTurn != "string" || typeof initialCastleRights != "string") {
+    if (typeof initialBoard === "string" || typeof initialHalfTurn != "string" || typeof initialTurn != "string" || typeof initialCastleRights != "string" || typeof initialActiveColor != "string") {
         return
     }
 
@@ -882,7 +883,6 @@ export default function BoardContextProvider({
         }
 
         const inCheck = evaluateCheck(lastMove)
-        console.log(inCheck)
         if (inCheck) {
             let checkmate = true
             board.forEach((row) => {
@@ -930,6 +930,7 @@ export default function BoardContextProvider({
         <BoardContext.Provider
             value={{
                 board,
+                activeColor,
                 selectedSquare,
                 flipped,
                 movePiece,
